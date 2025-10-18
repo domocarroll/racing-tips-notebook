@@ -109,6 +109,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-regular-
 
+      - name: Prepare Docker tags for regular build
+        id: tags-regular
+        run: |
+          TAGS="${{ needs.extract-version.outputs.ghcr_image }}:${{ needs.extract-version.outputs.version }}"
+
+          # Determine if we should push latest tags
+          PUSH_LATEST="${{ github.event.inputs.push_latest }}"
+          if [[ -z "$PUSH_LATEST" ]]; then
+            PUSH_LATEST="false"
+          fi
+
+          # Add GHCR latest tag if requested or for non-prerelease releases
+          if [[ "$PUSH_LATEST" == "true" ]] || [[ "${{ github.event_name }}" == "release" && "${{ github.event.release.prerelease }}" != "true" ]]; then
+            TAGS="${TAGS},${{ needs.extract-version.outputs.ghcr_image }}:v1-latest"
+          fi
+
+          # Add Docker Hub tags if credentials available
+          if [[ "${{ needs.extract-version.outputs.has_dockerhub_secrets }}" == "true" ]]; then
+            TAGS="${TAGS},${{ needs.extract-version.outputs.dockerhub_image }}:${{ needs.extract-version.outputs.version }}"
+
+            if [[ "$PUSH_LATEST" == "true" ]] || [[ "${{ github.event_name }}" == "release" && "${{ github.event.release.prerelease }}" != "true" ]]; then
+              TAGS="${TAGS},${{ needs.extract-version.outputs.dockerhub_image }}:v1-latest"
+            fi
+          fi
+
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "Generated tags: ${TAGS}"
+
       - name: Build and push regular image
         uses: docker/build-push-action@v5
         with:
@@ -116,11 +144,7 @@ jobs:
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ needs.extract-version.outputs.ghcr_image }}:${{ needs.extract-version.outputs.version }}
-            ${{ (github.event.inputs.push_latest == 'true' || (github.event_name == 'release' && !github.event.release.prerelease)) && format('{0}:v1-latest', needs.extract-version.outputs.ghcr_image) || '' }}
-            ${{ needs.extract-version.outputs.has_dockerhub_secrets == 'true' && format('{0}:{1}', needs.extract-version.outputs.dockerhub_image, needs.extract-version.outputs.version) || '' }}
-            ${{ (needs.extract-version.outputs.has_dockerhub_secrets == 'true' && (github.event.inputs.push_latest == 'true' || (github.event_name == 'release' && !github.event.release.prerelease))) && format('{0}:v1-latest', needs.extract-version.outputs.dockerhub_image) || '' }}
+          tags: ${{ steps.tags-regular.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache-new,mode=max
 
@@ -162,6 +186,34 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-single-
 
+      - name: Prepare Docker tags for single build
+        id: tags-single
+        run: |
+          TAGS="${{ needs.extract-version.outputs.ghcr_image }}:${{ needs.extract-version.outputs.version }}-single"
+
+          # Determine if we should push latest tags
+          PUSH_LATEST="${{ github.event.inputs.push_latest }}"
+          if [[ -z "$PUSH_LATEST" ]]; then
+            PUSH_LATEST="false"
+          fi
+
+          # Add GHCR latest tag if requested or for non-prerelease releases
+          if [[ "$PUSH_LATEST" == "true" ]] || [[ "${{ github.event_name }}" == "release" && "${{ github.event.release.prerelease }}" != "true" ]]; then
+            TAGS="${TAGS},${{ needs.extract-version.outputs.ghcr_image }}:v1-latest-single"
+          fi
+
+          # Add Docker Hub tags if credentials available
+          if [[ "${{ needs.extract-version.outputs.has_dockerhub_secrets }}" == "true" ]]; then
+            TAGS="${TAGS},${{ needs.extract-version.outputs.dockerhub_image }}:${{ needs.extract-version.outputs.version }}-single"
+
+            if [[ "$PUSH_LATEST" == "true" ]] || [[ "${{ github.event_name }}" == "release" && "${{ github.event.release.prerelease }}" != "true" ]]; then
+              TAGS="${TAGS},${{ needs.extract-version.outputs.dockerhub_image }}:v1-latest-single"
+            fi
+          fi
+
+          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
+          echo "Generated tags: ${TAGS}"
+
       - name: Build and push single-container image
         uses: docker/build-push-action@v5
         with:
@@ -169,11 +221,7 @@ jobs:
           file: ./Dockerfile.single
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ needs.extract-version.outputs.ghcr_image }}:${{ needs.extract-version.outputs.version }}-single
-            ${{ (github.event.inputs.push_latest == 'true' || (github.event_name == 'release' && !github.event.release.prerelease)) && format('{0}:v1-latest-single', needs.extract-version.outputs.ghcr_image) || '' }}
-            ${{ needs.extract-version.outputs.has_dockerhub_secrets == 'true' && format('{0}:{1}-single', needs.extract-version.outputs.dockerhub_image, needs.extract-version.outputs.version) || '' }}
-            ${{ (needs.extract-version.outputs.has_dockerhub_secrets == 'true' && (github.event.inputs.push_latest == 'true' || (github.event_name == 'release' && !github.event.release.prerelease))) && format('{0}:v1-latest-single', needs.extract-version.outputs.dockerhub_image) || '' }}
+          tags: ${{ steps.tags-single.outputs.tags }}
           cache-from: type=local,src=/tmp/.buildx-cache-single
           cache-to: type=local,dest=/tmp/.buildx-cache-single-new,mode=max
 
