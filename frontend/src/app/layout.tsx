@@ -11,8 +11,8 @@ import { themeScript } from "@/lib/theme-script";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Open Notebook",
-  description: "Privacy-focused research and knowledge management",
+  title: "Racing Tips Notebook",
+  description: "AI-powered racing tips aggregation and analysis platform",
 };
 
 export default function RootLayout({
